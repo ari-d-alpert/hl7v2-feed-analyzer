@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+
+# NEVER commit real patient data — block HL7/data files by default.
+# Whitelist only the synthetic sample corpus.
+*.hl7
+*.txt
+*.dat
+*.ndjson
+!sample/*.hl7

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hl7v2-feed-analyzer"
+version = "0.1.0"
+description = "Population-level fill-rate and encounter-reconstruction analysis for HL7 v2 feeds."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Ari D. Alpert" }]
+keywords = ["hl7", "hl7v2", "adt", "healthcare", "interoperability"]
+dependencies = [
+    "pandas>=1.5",
+    "click>=8.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+hl7fa = "hl7fa.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
