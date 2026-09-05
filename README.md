@@ -145,6 +145,12 @@ Covers parser edge cases (MSH numbering, repeating segments, components, custom 
 - HTML report output for sharing fill-rate and integrity summaries.
 - Cross-field validation (e.g. PV1-19 populated but PID-18 empty, or MRN present without either key).
 - Optional pluggable parser backend (`python-hl7` / `hl7apy`).
+- Scope repeating segments to their parent group. `field_all` flattens every
+  occurrence in a message, so on an ORU with two OBR order groups, `OBX-3.1`
+  returns the observations from both with no way to ask for one. Fine for
+  population-level fill rates; a blocker for per-order-group analysis. Needs
+  the parser to track segment-group boundaries, which it deliberately does not
+  model today (see Design notes).
 
 ## License
 
