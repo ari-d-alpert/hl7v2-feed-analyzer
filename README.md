@@ -13,20 +13,30 @@ Population-level analysis for HL7 v2 feeds. Report field **fill rates** and valu
 ## Install
 
 ```bash
+# create and activate a virtual environment
+python -m venv .venv
+.venv\Scripts\Activate.ps1     # Windows (PowerShell)
+source .venv/bin/activate      # macOS / Linux
+
 pip install -e .
 # or, with dev deps for the test suite:
 pip install -e ".[dev]"
 ```
 
-This installs an `hl7fa` command.
+This installs an `hl7fa` command onto the activated environment's PATH. Without
+activating, call it by path instead: `.venv/bin/hl7fa` (or
+`.venv\Scripts\hl7fa.exe` on Windows).
 
 ## Usage
 
-Generate the synthetic sample feed first (safe, fabricated data):
+The synthetic sample feed (safe, fabricated data) ships with the repo at
+`sample/adt_feed.hl7`. Regenerate it if you want to:
 
 ```bash
 python sample/generate_sample.py
 ```
+
+Generation is seeded, so the IDs used in the examples below stay stable.
 
 ### Fill rates
 
@@ -58,7 +68,10 @@ hl7fa encounters sample/adt_feed.hl7 --encounter-key visit --integrity
 
 # ordered event timeline for one patient or one encounter
 hl7fa encounters sample/adt_feed.hl7 --timeline mrn:MRN1000
-hl7fa encounters sample/adt_feed.hl7 --timeline enc:VN9000
+
+# encounter timelines are looked up under the active --encounter-key,
+# so pass the same key the ID belongs to
+hl7fa encounters sample/adt_feed.hl7 --encounter-key visit --timeline enc:VN9000
 ```
 
 Field specs for MRN, account, and visit are configurable (`--mrn-spec`, `--account-spec`, `--visit-spec`) for sites with non-standard PID-3 usage.
