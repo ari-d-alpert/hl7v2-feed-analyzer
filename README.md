@@ -32,9 +32,32 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
-This installs an `hl7fa` command onto the activated environment's PATH. Without
-activating, call it by path instead: `.venv/bin/hl7fa` (or
-`.venv\Scripts\hl7fa.exe` on Windows).
+This installs an `hl7fa` command onto the activated environment's PATH.
+
+**Windows: if activation is blocked.** PowerShell's default execution policy is
+`Restricted`, which refuses to run `Activate.ps1`:
+
+```
+.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system
+```
+
+Either allow local scripts once (per-user, no admin required — `RemoteSigned`
+still requires signatures on downloaded scripts):
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+…or skip activation entirely and call into the environment by path, which needs
+no policy change:
+
+```powershell
+.venv\Scripts\hl7fa.exe --help
+.venv\Scripts\python.exe -m pytest
+```
+
+The equivalents elsewhere are `.venv/bin/hl7fa` and `.venv/bin/python -m pytest`,
+and `.venv\Scripts\activate.bat` activates from `cmd.exe` rather than PowerShell.
 
 ## Usage
 
@@ -104,10 +127,18 @@ Runs entirely locally, no network calls. But **"does not exfiltrate" is not "HIP
 ## Tests
 
 ```bash
-pytest
+pytest                      # whole suite
+pytest -x                   # stop at first failure
+pytest --lf                 # re-run only what failed last time
+pytest -k timeline          # only tests matching a name
 ```
 
-Covers parser edge cases (MSH numbering, repeating segments, components, custom delimiters, malformed input) and the encounter logic (admit-without-discharge detection, account-vs-visit collision behavior).
+`pytest` needs no arguments from the repo root: `pyproject.toml` sets
+`testpaths` and `pythonpath`, so there is no `PYTHONPATH` to export. Without an
+activated environment, use `.venv\Scripts\python.exe -m pytest` (or
+`.venv/bin/python -m pytest`).
+
+Covers parser edge cases (MSH numbering, repeating segments, components, custom delimiters, malformed input), the encounter logic (admit-without-discharge detection, account-vs-visit collision behavior), message-level vs occurrence-level fill rates, and CLI argument handling and exit codes.
 
 ## Roadmap
 
