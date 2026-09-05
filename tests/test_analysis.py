@@ -7,6 +7,7 @@ import pytest
 from hl7fa import (
     load,
     analyze_field,
+    fillrate_frame,
     fillrate_by_message_type,
     group,
     summary,
@@ -115,3 +116,64 @@ def test_multi_message_batch_split(tmp_path):
     p.write_text(blob, encoding="utf-8")
     r = load(str(p))
     assert len(r.messages) == 2
+
+
+def _oru(ctrl, obx_values):
+    """ORU with one OBX per entry in obx_values; '' means an empty OBX-5."""
+    segs = [
+        f"MSH|^~\\&|LAB|F|R|RF|202601011200{ctrl:02d}||ORU^R01|C{ctrl}|P|2.5",
+        f"PID|1|M{ctrl}|M{ctrl}^^^HOSP^MR||Doe^Jane||19800101|F|||||||||A{ctrl}",
+    ]
+    for i, v in enumerate(obx_values, start=1):
+        segs.append(f"OBX|{i}|NM|T{i}^Test {i}^L||{v}|u|r|N|||F")
+    return "\r".join(segs)
+
+
+@pytest.fixture
+def oru_feed(tmp_path):
+    # msg 1: 2 of 3 occurrences populated; msg 2: 1 of 1 populated
+    p = tmp_path / "oru.hl7"
+    p.write_text("\r\r".join([_oru(1, ["7.2", "13.4", ""]), _oru(2, ["140"])]),
+                 encoding="utf-8")
+    return str(p)
+
+
+def test_occurrence_fill_rate_diverges_from_message_fill_rate(oru_feed):
+    """Every message has some OBX-5, so message fill rate is 1.0 — but one of
+    the four occurrences is empty, which only the occurrence rate shows."""
+    r = load(oru_feed)
+    rep = analyze_field(r.messages, "OBX-5")
+    assert rep.fill_rate == 1.0
+    assert rep.total_occurrences == 4
+    assert rep.populated_occurrences == 3
+    assert rep.occurrence_fill_rate == 0.75
+
+
+def test_occurrence_fill_rate_matches_when_no_repeats(oru_feed):
+    """On a non-repeating field the two rates agree."""
+    r = load(oru_feed)
+    rep = analyze_field(r.messages, "PID-3.1")
+    assert rep.fill_rate == rep.occurrence_fill_rate == 1.0
+
+
+def test_occurrence_fill_rate_zero_occurrences(oru_feed):
+    """A field on an absent segment must not divide by zero."""
+    r = load(oru_feed)
+    rep = analyze_field(r.messages, "ZZZ-1")
+    assert rep.total_occurrences == 0
+    assert rep.occurrence_fill_rate == 0.0
+
+
+def test_fillrate_frame_exposes_occurrence_columns(oru_feed):
+    r = load(oru_feed)
+    df = fillrate_frame([analyze_field(r.messages, "OBX-5")])
+    assert df.iloc[0]["occ_populated"] == 3
+    assert df.iloc[0]["occ_fill_rate"] == 0.75
+
+
+def test_fillrate_by_message_type_exposes_occurrence_rate(oru_feed):
+    r = load(oru_feed)
+    df = fillrate_by_message_type(r.messages, "OBX-5")
+    row = df[df["message_type"] == "ORU^R01"].iloc[0]
+    assert row["fill_rate"] == 1.0
+    assert row["occ_fill_rate"] == 0.75

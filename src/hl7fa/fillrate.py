@@ -21,9 +21,23 @@ class FieldReport:
 
     @property
     def fill_rate(self) -> float:
+        """Share of messages carrying at least one non-empty occurrence."""
         if self.total_messages == 0:
             return 0.0
         return self.populated_messages / self.total_messages
+
+    @property
+    def occurrence_fill_rate(self) -> float:
+        """Share of individual occurrences that are non-empty.
+
+        Diverges from fill_rate on repeating segments: a message with three
+        OBX, one of them empty, is fully populated message-wise but only 2/3
+        populated occurrence-wise. For OBX/DG1/IN1/NK1 analysis this is
+        usually the number you want.
+        """
+        if self.total_occurrences == 0:
+            return 0.0
+        return self.populated_occurrences / self.total_occurrences
 
 
 def analyze_field(
@@ -71,6 +85,8 @@ def fillrate_frame(reports: list[FieldReport]) -> pd.DataFrame:
                 "populated": r.populated_messages,
                 "fill_rate": round(r.fill_rate, 4),
                 "occurrences": r.total_occurrences,
+                "occ_populated": r.populated_occurrences,
+                "occ_fill_rate": round(r.occurrence_fill_rate, 4),
                 "unique_values": r.unique_values,
             }
         )
@@ -110,6 +126,8 @@ def fillrate_by_message_type(
                 "messages": r.total_messages,
                 "populated": r.populated_messages,
                 "fill_rate": round(r.fill_rate, 4),
+                "occurrences": r.total_occurrences,
+                "occ_fill_rate": round(r.occurrence_fill_rate, 4),
                 "unique_values": r.unique_values,
             }
         )

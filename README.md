@@ -8,6 +8,15 @@ Population-level analysis for HL7 v2 feeds. Report field **fill rates** and valu
 
 **Fill rates** — for any field you name (in `SEG-N[.C[.S]]` notation), across every message in the feed: how often it's populated, how many unique values, and the value distribution. Handles repeating segments (DG1, IN1, NK1, OBX) and repeating fields, and can break a field's fill rate down by MSH-9 trigger event.
 
+Two rates are reported, and on repeating segments they differ:
+
+| column | meaning |
+| --- | --- |
+| `fill_rate` | share of **messages** with at least one non-empty occurrence |
+| `occ_fill_rate` | share of **individual occurrences** that are non-empty |
+
+A message carrying three OBX, one of them empty, is fully populated message-wise (`fill_rate` 1.0) but only 2/3 populated occurrence-wise. For OBX/DG1/IN1/NK1, `occ_fill_rate` is usually the number you want; for non-repeating fields the two agree.
+
 **Encounter reconstruction** — group messages into encounters (by **account number** *or* **visit number**, your choice per run) and encounters into patients (by MRN). Surfaces the data-quality problems that matter: admits with no discharge, discharges with no admit, orphaned messages with no encounter key, and the same visit/account number colliding across two MRNs.
 
 ## Install
@@ -53,6 +62,14 @@ hl7fa fillrate sample/adt_feed.hl7 PV1-19 --by-message-type
 # export instead of printing
 hl7fa fillrate sample/adt_feed.hl7 PID-3.1 --format csv --out fillrates.csv
 ```
+
+Beyond ADT: fill rates are message-type agnostic — the parser is positional and
+knows nothing about ADT specifically — so `fillrate` works on ORU, MDM, SIU, ORM
+and anything else (`OBX-3.1`, `OBR-4.2`, `TXA-2.2`, …). `encounters` grouping
+also works on any message carrying PID/PV1, but its **admit/discharge integrity
+checks are ADT-only**: `--integrity` and the `admits_without_discharge` /
+`discharges_without_admit` metrics key off A01/A04/A03 triggers and read as all
+`False` on a non-ADT feed.
 
 ### Encounters
 
