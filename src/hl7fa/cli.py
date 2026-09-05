@@ -6,6 +6,7 @@ import sys
 import click
 import pandas as pd
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from . import (
@@ -49,6 +50,33 @@ def _emit(df: pd.DataFrame, fmt: str, out: str | None, title: str) -> None:
         for _, row in df.iterrows():
             table.add_row(*[str(v) for v in row.tolist()])
         console.print(table)
+
+
+_OTHER_KEY = {"account": "visit", "visit": "account"}
+
+
+def _no_timeline_match(kind: str, value: str, *, encounter_key: str, messages,
+                       mrn_spec: str, account_spec: str, visit_spec: str) -> None:
+    """Report an empty timeline lookup and exit.
+
+    For an encounter miss, re-group under the opposite key: an account number
+    asked for while grouping by visit (or vice versa) is the common mistake,
+    and saying so is more useful than "not found".
+    """
+    console.print(
+        f"[red]No {kind} matching[/] {escape(repr(value))}"
+        + (f" [red]under[/] --encounter-key={encounter_key}." if kind == "encounter" else ".")
+    )
+    if kind == "encounter":
+        other = _OTHER_KEY[encounter_key]
+        other_grp = group(messages, encounter_key=other, mrn_spec=mrn_spec,
+                          account_spec=account_spec, visit_spec=visit_spec)
+        if value in other_grp.encounters:
+            console.print(
+                f"That ID is an encounter under [bold]--encounter-key={other}[/]; "
+                f"rerun with that flag."
+            )
+    sys.exit(1)
 
 
 @click.group()
@@ -129,12 +157,18 @@ def encounters(path, encounter_key, mrn_spec, account_spec, visit_spec, ext,
 
     if timeline_arg:
         if timeline_arg.startswith("mrn:"):
-            df = timeline(grp, mrn=timeline_arg[4:])
+            kind, value = "MRN", timeline_arg[4:]
+            df = timeline(grp, mrn=value)
         elif timeline_arg.startswith("enc:"):
-            df = timeline(grp, encounter=timeline_arg[4:])
+            kind, value = "encounter", timeline_arg[4:]
+            df = timeline(grp, encounter=value)
         else:
             console.print("[red]--timeline must be mrn:VALUE or enc:VALUE[/]")
             sys.exit(1)
+        if df.empty:
+            _no_timeline_match(kind, value, encounter_key=encounter_key,
+                               messages=result.messages, mrn_spec=mrn_spec,
+                               account_spec=account_spec, visit_spec=visit_spec)
         _emit(df, fmt, out, f"Timeline: {timeline_arg}")
         return
 
