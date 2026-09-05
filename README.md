@@ -70,6 +70,28 @@ python sample/generate_sample.py
 
 Generation is seeded, so the IDs used in the examples below stay stable.
 
+### Choosing input files
+
+Every command takes one or more paths. A path may be a file or a directory;
+directories are walked recursively unless you pass `--no-recursive`, and are
+filtered by `--ext` (default `.hl7,.txt,.dat`, case-insensitive). A path naming
+a file is read whatever its extension.
+
+To analyze several files, pass them all. For `fillrate`, use `-f/--field` so
+the positional arguments are unambiguously paths and a shell glob expands
+freely:
+
+```bash
+hl7fa fillrate *.txt -f PID-3.1 -f PV1-19        # glob over the current dir
+hl7fa fillrate /data/feeds -f PID-3.1            # whole tree
+hl7fa fillrate /data/feeds -f PID-3.1 --no-recursive
+hl7fa encounters *.txt --encounter-key visit     # encounters needs no flag
+```
+
+Overlapping arguments are de-duplicated by real path, so naming a file twice
+-- or naming both a file and a directory that contains it -- counts it once
+rather than inflating every statistic.
+
 ### Fill rates
 
 ```bash

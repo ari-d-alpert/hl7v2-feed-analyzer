@@ -6,6 +6,7 @@ import pytest
 
 from hl7fa import (
     load,
+    collect_files,
     analyze_field,
     fillrate_frame,
     values_frame,
@@ -202,3 +203,36 @@ def test_top_zero_on_absent_field_is_empty(feed):
     rep = analyze_field(r.messages, "ZZZ-1", top=0)
     assert rep.top_values == []
     assert values_frame(rep).empty
+
+
+def test_collect_files_dedupes_and_sorts(tmp_path):
+    (tmp_path / "sub").mkdir()
+    for rel in ("b.hl7", "a.hl7", "sub/c.hl7"):
+        (tmp_path / rel).write_text(_msg("A01", "M1", "A1", "V1", 1), encoding="utf-8")
+    got = collect_files([str(tmp_path / "a.hl7"), str(tmp_path)])
+    assert got == sorted(got)
+    assert len(got) == 3                      # a.hl7 not counted twice
+
+
+def test_collect_files_non_recursive(tmp_path):
+    (tmp_path / "sub").mkdir()
+    for rel in ("a.hl7", "sub/c.hl7"):
+        (tmp_path / rel).write_text(_msg("A01", "M1", "A1", "V1", 1), encoding="utf-8")
+    assert len(collect_files(str(tmp_path), recursive=False)) == 1
+    assert len(collect_files(str(tmp_path), recursive=True)) == 2
+
+
+def test_collect_files_named_file_ignores_extension(tmp_path):
+    """An explicitly named file is read whatever it is called."""
+    odd = tmp_path / "feed.backup"
+    odd.write_text(_msg("A01", "M1", "A1", "V1", 1), encoding="utf-8")
+    assert collect_files(str(odd)) == [os.path.realpath(str(odd))]
+    assert collect_files(str(tmp_path)) == []      # but not picked up by a walk
+
+
+def test_load_accepts_a_list_of_paths(tmp_path):
+    for rel in ("a.hl7", "b.hl7"):
+        (tmp_path / rel).write_text(_msg("A01", "M1", "A1", "V1", 1), encoding="utf-8")
+    r = load([str(tmp_path / "a.hl7"), str(tmp_path / "b.hl7")])
+    assert r.files_read == 2
+    assert len(r.messages) == 2

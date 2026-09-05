@@ -24,6 +24,24 @@ from . import (
 console = Console()
 
 
+def _split_args(args: tuple[str, ...],
+                field_opts: tuple[str, ...]) -> tuple[list[str], list[str]]:
+    """Resolve the two accepted argument forms into (paths, fields).
+
+    With -f/--field, every positional is a path -- this is the form that lets
+    a shell glob expand freely. Without it, the original PATH FIELD... shape
+    applies, where the first positional is the single path.
+    """
+    if field_opts:
+        return list(args), list(field_opts)
+    if len(args) < 2:
+        raise click.UsageError(
+            "Give a path and at least one field: 'hl7fa fillrate PATH FIELD', "
+            "or use -f to pass several paths: 'hl7fa fillrate *.txt -f PID-3.1'."
+        )
+    return [args[0]], list(args[1:])
+
+
 def _parse_ext(ext: str) -> tuple[str, ...]:
     return tuple(e if e.startswith(".") else "." + e
                  for e in (x.strip() for x in ext.split(",")) if e)
@@ -90,8 +108,13 @@ def main() -> None:
 
 
 @main.command()
-@click.argument("path")
-@click.argument("fields", nargs=-1, required=True)
+@click.argument("args", nargs=-1, required=True)
+@click.option("-f", "--field", "field_opts", multiple=True,
+              help="Field spec to analyze; repeatable. When given, every "
+                   "positional argument is treated as a path, so a shell glob "
+                   "such as *.txt works.")
+@click.option("--no-recursive", is_flag=True,
+              help="Do not descend into subdirectories of a directory argument.")
 @click.option("--ext", default=".hl7,.txt,.dat", help="Comma-separated file extensions.")
 @click.option("--top", default=20, type=click.IntRange(min=0),
               help="Show top-N values per field (0 = all).")
@@ -99,12 +122,21 @@ def main() -> None:
 @click.option("--by-message-type", is_flag=True, help="Break fill rate down by MSH-9 trigger.")
 @click.option("--format", "fmt", type=click.Choice(["table", "csv", "json"]), default="table")
 @click.option("--out", default=None, help="Write output to file instead of stdout.")
-def fillrate(path, fields, ext, top, show_values, by_message_type, fmt, out):
+def fillrate(args, field_opts, no_recursive, ext, top, show_values,
+             by_message_type, fmt, out):
     """Field fill rates and value distributions.
 
-    FIELDS use SEG-N[.C[.S]] notation, e.g. PID-3 PV1-2 PID-18 DG1-3.1
+    Two forms:
+
+    
+      hl7fa fillrate PATH FIELD [FIELD...]
+      hl7fa fillrate PATH [PATH...] -f FIELD [-f FIELD...]
+
+    The second accepts several paths, so a shell glob (*.txt) works. FIELDS
+    use SEG-N[.C[.S]] notation, e.g. PID-3 PV1-2 PID-18 DG1-3.1
     """
-    result = load(path, _parse_ext(ext))
+    paths, fields = _split_args(args, field_opts)
+    result = load(paths, _parse_ext(ext), recursive=not no_recursive)
     if not result.messages:
         console.print("[red]No messages parsed.[/] Check the path and --ext.")
         sys.exit(1)
@@ -129,7 +161,9 @@ def fillrate(path, fields, ext, top, show_values, by_message_type, fmt, out):
 
 
 @main.command()
-@click.argument("path")
+@click.argument("paths", nargs=-1, required=True)
+@click.option("--no-recursive", is_flag=True,
+              help="Do not descend into subdirectories of a directory argument.")
 @click.option("--encounter-key", type=click.Choice(["account", "visit"]), default="account",
               help="Group encounters by account number (PID-18) or visit number (PV1-19).")
 @click.option("--mrn-spec", default="PID-3.1", help="Field spec for MRN.")
@@ -141,10 +175,13 @@ def fillrate(path, fields, ext, top, show_values, by_message_type, fmt, out):
               help="Dump ordered events for a MRN (mrn:VALUE) or encounter (enc:VALUE).")
 @click.option("--format", "fmt", type=click.Choice(["table", "csv", "json"]), default="table")
 @click.option("--out", default=None, help="Write output to file instead of stdout.")
-def encounters(path, encounter_key, mrn_spec, account_spec, visit_spec, ext,
-               integrity, timeline_arg, fmt, out):
-    """Reconstruct encounters and patients from an ADT feed."""
-    result = load(path, _parse_ext(ext))
+def encounters(paths, no_recursive, encounter_key, mrn_spec, account_spec,
+               visit_spec, ext, integrity, timeline_arg, fmt, out):
+    """Reconstruct encounters and patients from an ADT feed.
+
+    Accepts several paths, so a shell glob (*.txt) works.
+    """
+    result = load(paths, _parse_ext(ext), recursive=not no_recursive)
     if not result.messages:
         console.print("[red]No messages parsed.[/] Check the path and --ext.")
         sys.exit(1)
