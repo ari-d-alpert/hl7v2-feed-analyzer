@@ -1,0 +1,12 @@
+# Store text as LF in the repository and check it out as LF everywhere, so
+# Windows and POSIX clones agree and Git stops warning about CRLF round-trips.
+* text=auto eol=lf
+
+# HL7 payloads are the exception: segment terminators are semantic, and many
+# real feeds terminate segments with CRLF. Under the rule above, Git rewrites
+# those to bare LF on check-in -- silently altering the message. Disable all
+# conversion for data files. `!eol` is required alongside `-text` because the
+# eol attribute otherwise applies on its own.
+*.hl7 -text !eol
+*.dat -text !eol
+*.ndjson -text !eol
