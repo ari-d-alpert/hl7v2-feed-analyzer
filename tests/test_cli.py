@@ -119,3 +119,42 @@ def test_no_messages_parsed_exits_nonzero(tmp_path):
     r = _run("encounters", str(empty))
     assert r.exit_code == 1
     assert "No messages parsed" in r.output
+
+
+@pytest.fixture
+def varied_feed(tmp_path):
+    """Three distinct MRNs, so a value distribution has something to truncate."""
+    p = tmp_path / "varied.hl7"
+    p.write_text("\r\r".join([_msg("A01", f"M{i}", f"ACCT{i}", f"VIS{i}", i)
+                              for i in (1, 2, 3)]), encoding="utf-8")
+    return str(p)
+
+
+def _value_rows(output):
+    """Rows of the trailing value-distribution CSV, box-glyph independent."""
+    lines = [ln for ln in output.splitlines() if ln.strip()]
+    start = lines.index("value,count")
+    return lines[start + 1:]
+
+
+def test_values_top_zero_shows_all(varied_feed):
+    """Regression: --top 0 is documented as 'all' but printed nothing,
+    because Counter.most_common(0) returns an empty list."""
+    r = _run("fillrate", varied_feed, "PID-3.1", "--values", "--top", "0",
+             "--format", "csv")
+    assert r.exit_code == 0
+    assert len(_value_rows(r.output)) == 3
+
+
+def test_values_top_n_truncates(varied_feed):
+    r = _run("fillrate", varied_feed, "PID-3.1", "--values", "--top", "2",
+             "--format", "csv")
+    assert r.exit_code == 0
+    assert len(_value_rows(r.output)) == 2
+
+
+def test_negative_top_is_rejected(varied_feed):
+    """A negative cap is nonsense; click should reject it rather than let it
+    fall through to mean 'all'."""
+    r = _run("fillrate", varied_feed, "PID-3.1", "--values", "--top", "-1")
+    assert r.exit_code != 0

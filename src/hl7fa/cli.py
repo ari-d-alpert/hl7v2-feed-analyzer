@@ -93,7 +93,8 @@ def main() -> None:
 @click.argument("path")
 @click.argument("fields", nargs=-1, required=True)
 @click.option("--ext", default=".hl7,.txt,.dat", help="Comma-separated file extensions.")
-@click.option("--top", default=20, help="Show top-N values per field (0 = all).")
+@click.option("--top", default=20, type=click.IntRange(min=0),
+              help="Show top-N values per field (0 = all).")
 @click.option("--values", "show_values", is_flag=True, help="Show value distribution per field.")
 @click.option("--by-message-type", is_flag=True, help="Break fill rate down by MSH-9 trigger.")
 @click.option("--format", "fmt", type=click.Choice(["table", "csv", "json"]), default="table")
@@ -123,7 +124,7 @@ def fillrate(path, fields, ext, top, show_values, by_message_type, fmt, out):
 
     if show_values:
         for r in reports:
-            df = values_frame(r, all_values=(top == 0))
+            df = values_frame(r)
             _emit(df, fmt, None, f"Values: {r.spec}")
 
 

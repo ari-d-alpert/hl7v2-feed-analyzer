@@ -45,7 +45,10 @@ def analyze_field(
     spec: str,
     top: int = 20,
 ) -> FieldReport:
-    """Compute fill rate and value distribution for one field spec."""
+    """Compute fill rate and value distribution for one field spec.
+
+    ``top`` caps the retained value distribution; 0 keeps every distinct value.
+    """
     populated_messages = 0
     total_occurrences = 0
     populated_occurrences = 0
@@ -70,7 +73,8 @@ def analyze_field(
         total_occurrences=total_occurrences,
         populated_occurrences=populated_occurrences,
         unique_values=len(values),
-        top_values=values.most_common(top),
+        # most_common(0) returns nothing; None is what means 'all'
+        top_values=values.most_common(top if top > 0 else None),
     )
 
 
@@ -93,14 +97,12 @@ def fillrate_frame(reports: list[FieldReport]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def values_frame(report: FieldReport, all_values: bool = False) -> pd.DataFrame:
-    """Value-distribution DataFrame for a single field."""
-    items = report.top_values
-    if all_values:
-        # top_values already holds most_common(top); for --all-values the caller
-        # should have requested top=0 (unbounded). Guard anyway.
-        pass
-    return pd.DataFrame(items, columns=["value", "count"])
+def values_frame(report: FieldReport) -> pd.DataFrame:
+    """Value-distribution DataFrame for a single field.
+
+    The distribution is already capped by the ``top`` passed to analyze_field.
+    """
+    return pd.DataFrame(report.top_values, columns=["value", "count"])
 
 
 def fillrate_by_message_type(

@@ -8,6 +8,7 @@ from hl7fa import (
     load,
     analyze_field,
     fillrate_frame,
+    values_frame,
     fillrate_by_message_type,
     group,
     summary,
@@ -177,3 +178,27 @@ def test_fillrate_by_message_type_exposes_occurrence_rate(oru_feed):
     row = df[df["message_type"] == "ORU^R01"].iloc[0]
     assert row["fill_rate"] == 1.0
     assert row["occ_fill_rate"] == 0.75
+
+
+def test_top_zero_keeps_every_value(feed):
+    """--top 0 documents itself as 'all'; most_common(0) would return none."""
+    r = load(feed)
+    rep = analyze_field(r.messages, "PID-3.1", top=0)
+    assert rep.unique_values == 6
+    assert len(rep.top_values) == 6
+    assert len(values_frame(rep)) == 6
+
+
+def test_top_n_truncates(feed):
+    r = load(feed)
+    rep = analyze_field(r.messages, "PID-3.1", top=2)
+    assert rep.unique_values == 6          # the count is not truncated
+    assert len(rep.top_values) == 2        # only the retained sample is
+    assert len(values_frame(rep)) == 2
+
+
+def test_top_zero_on_absent_field_is_empty(feed):
+    r = load(feed)
+    rep = analyze_field(r.messages, "ZZZ-1", top=0)
+    assert rep.top_values == []
+    assert values_frame(rep).empty
